@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soco Trading Terminal</title>
+    <style>
+        body {
+            background-color: #0D0D0D; /* Tam qara fon */
+            color: #F5F5F5; /* Yumşaq ağ mətn */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .terminal {
+            width: 90%;
+            max-width: 420px;
+            background: #1A1A1A; /* Tünd boz/qara panel */
+            border: 2px solid #4E342E; /* Qəhvəyi haşiyə */
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            border-radius: 4px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #3E2723; /* Tünd qəhvəyi xətt */
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+
+        .label-text {
+            font-weight: bold;
+            font-size: 11px;
+            color: #8D6E63; /* Açıq qəhvəyi */
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #price {
+            font-size: 3.8rem;
+            font-family: 'Courier New', monospace;
+            color: #FFFFFF; /* Bəyaz qiymət */
+            text-align: center;
+            margin: 25px 0;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255,255,255,0.1);
+        }
+
+        .signal-card {
+            background: #2D1D19; /* Qəhvəyi çalarlı tünd fon */
+            border: 1px solid #4E342E;
+            padding: 25px;
+            text-align: center;
+            margin-top: 10px;
+            border-radius: 2px;
+        }
+
+        #signal-text {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+
+        /* Siqnal rəngləri dizayna uyğun */
+        .neutral { color: #8D6E63; } /* Qəhvəyi tonlu gözləmə */
+        .buy { color: #FFFFFF; border-bottom: 3px solid #8D6E63; } /* Ağ mətn, qəhvəyi alt xətt */
+        .sell { color: #4E342E; background: #F5F5F5; padding: 5px; } /* Tərs rənglər */
+
+        .footer-info {
+            margin-top: 25px;
+            font-size: 10px;
+            color: #5D4037;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #3E2723;
+            padding-top: 15px;
+        }
+
+        #conn-status {
+            font-size: 10px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="terminal">
+    <div class="top-bar">
+        <span class="label-text">SOCO CORE • BTC/USDT</span>
+        <span id="conn-status" style="color: #8D6E63;">● LIVE_CONNECTED</span>
+    </div>
+
+    <div id="price">0.00</div>
+
+    <div class="signal-card">
+        <div class="label-text" style="margin-bottom: 10px; font-size: 9px;">Market Signal</div>
+        <div id="signal-text" class="neutral">ANALYZING</div>
+    </div>
+
+    <div class="footer-info">
+        <span>ENGINE: SCALPER_V1</span>
+        <span>LATENCY: <span id="delay">0</span>MS</span>
+    </div>
+</div>
+
+<script>
+    const priceDisplay = document.getElementById('price');
+    const signalDisplay = document.getElementById('signal-text');
+    const delayDisplay = document.getElementById('delay');
+    
+    let history = [];
+    
+    // Binance Global WebSocket
+    const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@aggTrade');
+
+    ws.onmessage = (event) => {
+        const start = Date.now();
+        const data = JSON.parse(event.data);
+        
+        const currentPrice = parseFloat(data.p).toFixed(2);
+        
+        // Qiyməti ekrana yaz
+        priceDisplay.innerText = currentPrice;
+        delayDisplay.innerText = Math.abs(Date.now() - start);
+
+        // Alqoritma üçün yaddaş
+        history.push(parseFloat(currentPrice));
+        if (history.length > 15) history.shift();
+
+        updateSignal();
+    };
+
+    function updateSignal() {
+        if (history.length < 10) return;
+
+        const latest = history[history.length - 1];
+        const prev = history[history.length - 5];
+        const diff = latest - prev;
+
+        if (diff < -2.5) {
+            signalDisplay.innerText = "STRONG BUY";
+            signalDisplay.className = "buy";
+        } else if (diff > 2.5) {
+            signalDisplay.innerText = "STRONG SELL";
+            signalDisplay.className = "sell";
+        } else {
+            signalDisplay.innerText = "WAITING";
+            signalDisplay.className = "neutral";
+        }
+    }
+
+    ws.onclose = () => {
+        document.getElementById('conn-status').innerText = "○ OFFLINE";
+        document.getElementById('conn-status').style.color = "#FF0000";
+    };
+</script>
+
+</body>
+</html>
